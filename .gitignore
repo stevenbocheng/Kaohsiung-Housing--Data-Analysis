@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Large Data & Backup Archive (Crucial Exclusion)
+backup_archive/
+**/*.csv
+!data/cleaned_all.csv
+!data/kaohsiung_poi_coords_categorized.csv
+*.csv.gz
+*.xls
+
+# Cache & Local Storage
+address_coords_*.json
+geocoding_cache_*.json
+street_coords_cache.json
+!app/street_coords_cache.json
+
+# Build & System
+.vscode/
+.idea/
+.gemini/
+.agents/
+.agent/
+_agents/
+_agent/
+brain/
+logs/
+.DS_Store
+
+# Streamlit Local Cache
+.streamlit/
