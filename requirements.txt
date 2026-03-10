@@ -8,7 +8,8 @@ scikit-learn
 matplotlib
 seaborn
 joblib
-streamlit
+streamlit>=1.35.0
+altair<5
 folium
 streamlit-folium
 plotly
