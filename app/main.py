@@ -428,13 +428,13 @@ elif page == "EDA 數據藝廊":
             st.image("visuals/eda/price_correction_kde.png", caption="修正前後分佈對比")
         with c_p2:
             st.image("visuals/eda/trend_yearly_net_price.png", caption="修正後單價趨勢")
-        st.image("visuals/reports/kaohsiung_outlier_clean_report.png", caption="最終清洗結果概覽")
+        
 
     # Section 4: Outliers
     with eda_tabs[3]:
         st.subheader("離群值處理與偽屋定義")
         st.error("房價資料中存在不合理的極端值 (如實價登錄報錯或特殊交易)，需進行過濾以確保模型穩健。")
-        st.image("visuals/eda/1_price_distribution_with_threshold.png", caption="單價分布 (對數空間)")
+        st.image("visuals/eda/price_correction_kde.png", caption="單價分布與修正前對比")
         
         st.write("我們篩選了疑似「假住宅」或「極端行情」的物件。")
         st.image("visuals/reports/kaohsiung_outlier_clean_report.png", caption="離群值分析結果")
@@ -446,8 +446,8 @@ elif page == "EDA 數據藝廊":
         st.markdown("近期高雄房價受產業入駐 (如楠梓台積電) 影響顯著，房價漲幅與區域熱度呈現強烈正相關。")
         
         growth_parts = [
-            "district_trends_v5_growth_part1.png", "district_trends_v5_growth_part2.png", 
-            "district_trends_v5_growth_part3.png", "district_trends_v5_growth_part4.png"
+            "district_faceted_trends_part1.png", "district_faceted_trends_part2.png", 
+            "district_faceted_trends_part3.png", "district_faceted_trends_part4.png"
         ]
         for p_img in growth_parts:
             st.image(f"visuals/eda/{p_img}")
@@ -503,7 +503,8 @@ else:
             - **District_MA180**: 計算該行政區過去半年同型態物件的平均成交價。
             - **作用**: 讓模型具備「行情感知」能力。
             """)
-        st.image("visuals/shaps/apartment_catboost_shap_summary.png", caption="集合住宅模型特徵影響力 (SHAP Summary)")
+        # st.image("visuals/shaps/apartment_catboost_shap_summary.png", caption="集合住宅模型特徵影響力 (SHAP Summary)")
+        st.info("💡 SHAP 全局解釋圖表目前產出中，請參考下方各特徵說明。")
 
     # Tab 3: Model Battle
     with tech_tabs[2]:
@@ -555,5 +556,7 @@ else:
             
         st.divider()
         col_s1, col_s2 = st.columns(2)
-        col_s1.image("visuals/shaps/apartment_catboost_shap_summary.png", caption="Apartment 全局解釋")
-        col_s2.image("visuals/shaps/house_lgbm_shap_summary.png", caption="House 全局解釋")
+        # col_s1.image("visuals/shaps/apartment_catboost_shap_summary.png", caption="Apartment 全局解釋")
+        # col_s2.image("visuals/shaps/house_lgbm_shap_summary.png", caption="House 全局解釋")
+        col_s1.info("集合住宅模型解釋圖待更新")
+        col_s2.info("透天厝模型解釋圖待更新")
