@@ -83,8 +83,11 @@ if page == "即時估價":
         
         input_dict = {
             '交易年': 2026, '交易月': 3, '屋齡': age, '建物移轉總面積坪': area,
-            '公設比': p_ratio, '主建物率': 1-(p_ratio/100), 
+            '主建物面積': area * (1 - p_ratio/100),
+            '公設比_主建物比': p_ratio / (100 - p_ratio) if p_ratio < 100 else 0,
             '土地持分率': 0.15 if target_key=="apt" else 1.0,
+            '有無管理組織': '有',
+            'Street': '不明',
             'PC1_整體大眾運輸依賴度': ctx.get('PC1', 0.0), 
             'PC2_北高雄產業樞紐軸度': ctx.get('PC2', 0.0),
             'District_MA180_Past': ctx.get('District_MA180_Past', 250000), 
@@ -92,10 +95,16 @@ if page == "即時估價":
             'MA90_Momentum': ctx.get('MA90_Momentum', 250000), 
             'MA180_Momentum': ctx.get('MA180_Momentum', 250000),
             '鄉鎮市區': dist, '建物用途大類': '住家用', '主要建材': '鋼筋混凝土造', 
-            '土地分區大類': '住宅區', '建物型態': '住宅大樓(11層含以上有電梯)' if target_key=="apt" else '透天厝'
+            '土地分區大類': '住宅區', '建物型態': '住宅大樓(11層含以上有電梯)' if target_key=="apt" else '透天厝',
+            '最小TRA距離_公尺': ctx.get('最小TRA距離_公尺', 1000.0),
+            '最小TSMC距離_公尺': ctx.get('最小TSMC距離_公尺', 5000.0),
+            '最小MRT距離_公尺': ctx.get('最小MRT距離_公尺', 800.0),
+            '最小HSR距離_公尺': ctx.get('最小HSR距離_公尺', 3000.0),
+            '最小LRT距離_公尺': ctx.get('最小LRT距離_公尺', 2000.0),
+            '最小大型公園量體距離_公尺': ctx.get('最小大型公園量體距離_公尺', 500.0)
         }
         X_df = pd.DataFrame([input_dict])[feats]
-        for c in ['鄉鎮市區', '建物用途大類', '主要建材', '土地分區大類', '建物型態']:
+        for c in ['鄉鎮市區', '建物用途大類', '主要建材', '土地分區大類', '建物型態', '有無管理組織', 'Street']:
             if c in X_df.columns: X_df[c] = X_df[c].astype('category')
         
         pred_log = model.predict(X_df)[0]
@@ -352,7 +361,7 @@ elif page == "市場行情地圖":
 
 
 # =================================================================
-# Page 3: EDA 藝廊
+# Page 3: EDA 數據藝廊
 # =================================================================
 elif page == "EDA 數據藝廊":
     st.title("深入探索數據背後的真相")
@@ -405,31 +414,30 @@ elif page == "EDA 數據藝廊":
         st.info("**核心挑戰**：台灣房價登錄通常包含車位，導致「單價」計算失真。我們的目標是透過模型拆算，還原真實的「淨屋單價」。")
         
         st.markdown("#### 零面積車位現象研究")
-        st.write("我們發現早期建物常有「有車位但登記面積為 0」的情況，這會嚴重誤導單價計算。")
+        st.write("我們發現早期建物常有「有車位但登記面積為 0」的情況，這在模型中被標註為 `is_zero_area` 特徵。")
         c3, c4 = st.columns(2)
-        c3.image("visuals/eda/5_age_distribution.png", caption="零面積車位與屋齡分佈")
-        c4.image("visuals/eda/4_yearly_trend.png", caption="歷年零面積車位佔比趨勢")
+        c3.image("visuals/eda/6_age_public_ratio_correlation.png", caption="屋齡與公設比關係")
+        c4.image("visuals/eda/trend_yearly_net_price.png", caption="歷年單價趨勢")
         
-        st.image("visuals/eda/6_historical_public_ratio_trend.png", caption="歷史公設比趨勢對照")
+        st.image("visuals/eda/historical_public_ratio_trend.png", caption="歷史公設比變化")
         st.success("**分析結論**：零面積車位高度集中於老舊建物，且這些物件的公設比顯著較高（圖中紅藍對比），證實車位面積被併入公設。")
         
-        st.markdown("#### 🪄 Lasso 模型修正效果")
-        col_p1, col_p2 = st.columns(2)
-        with col_p1:
-            st.image("eda_results_with_features/price_correction_kde.png", caption="修正前後單價分佈對照")
-        with col_p2:
-            st.image("eda_results_with_features/trend_yearly_net_price.png", caption="歷年淨屋單價趨勢")
-        st.image("eda_results_with_features/boxplot_net_price_overall.png", caption="淨屋單價整體盒鬚圖")
+        st.markdown("#### 離群值與資料清洗報告")
+        c_p1, c_p2 = st.columns(2)
+        with c_p1:
+            st.image("visuals/eda/price_correction_kde.png", caption="修正前後分佈對比")
+        with c_p2:
+            st.image("visuals/eda/trend_yearly_net_price.png", caption="修正後單價趨勢")
+        st.image("visuals/reports/kaohsiung_outlier_clean_report.png", caption="最終清洗結果概覽")
 
     # Section 4: Outliers
     with eda_tabs[3]:
         st.subheader("離群值處理與偽屋定義")
         st.error("房價資料中存在不合理的極端值 (如實價登錄報錯或特殊交易)，需進行過濾以確保模型穩健。")
-        st.image("visuals/eda/1_price_distribution_with_threshold.png", caption="單價分佈與過濾門檻設定")
+        st.image("visuals/eda/1_price_distribution_with_threshold.png", caption="單價分布 (對數空間)")
         
-        st.markdown("#### 偽屋過濾邏輯")
-        st.warning("**雙重篩選條件**：建物面積 < 5坪 **且** 單價 > 60萬/坪")
-        st.image("visuals/eda/2_fake_house_scatter.png", caption="偽屋散佈圖分析")
+        st.write("我們篩選了疑似「假住宅」或「極端行情」的物件。")
+        st.image("visuals/reports/kaohsiung_outlier_clean_report.png", caption="離群值分析結果")
         st.write("這類資料多為登記偏差，剔除後能讓模型更專注於大眾市場規律。隨後我們將資料按「建物型態」分流，分別建立大樓與透天模型。")
 
     # Section 5: Market Trends
@@ -495,7 +503,7 @@ else:
             - **District_MA180**: 計算該行政區過去半年同型態物件的平均成交價。
             - **作用**: 讓模型具備「行情感知」能力。
             """)
-        st.image("visuals/apartment_catboost_shap_summary.png", caption="特徵對於模型的貢獻權重 (SHAP Summary)")
+        st.image("visuals/shaps/apartment_catboost_shap_summary.png", caption="集合住宅模型特徵影響力 (SHAP Summary)")
 
     # Tab 3: Model Battle
     with tech_tabs[2]:
