@@ -1,3 +1,13 @@
+"""
+gen_market_context.py
+從 backup_archive/main_unbundled_lasso_v3_with_pca.csv 計算各行政區的
+市場行情快照（MA30/90/180 動能指標、PCA 空間特徵），
+並輸出至 app/market_context.json 供 Streamlit 估價頁面使用。
+
+執行方式：
+    python scripts/gen_market_context.py
+"""
+
 import pandas as pd
 import json
 import os

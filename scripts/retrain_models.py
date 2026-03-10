@@ -1,3 +1,13 @@
+"""
+retrain_models.py
+從 backup_archive/main_unbundled_lasso_v3_with_pca.csv 重新訓練
+集合住宅（CatBoost）與透天厝（LightGBM）兩個預測模型，
+並將模型與特徵清單儲存至 models/ 目錄。
+
+執行方式：
+    python scripts/retrain_models.py
+"""
+
 import pandas as pd
 import numpy as np
 import joblib

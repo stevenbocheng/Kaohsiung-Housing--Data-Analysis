@@ -1,3 +1,16 @@
+"""
+rebuild_data_assets.py
+從 backup_archive/main_unbundled_lasso_v3_with_pca.csv 重建以下三個資料資產：
+  - data/cleaned_all.csv          — 主要分析資料集（137,244 筆）
+  - app/street_coords_cache.json  — 街道坐標快取
+  - app/market_context.json       — 行政區市場行情快照
+
+模型訓練後應先執行此腳本，確保 app/ 引用的資源與模型版本一致。
+
+執行方式：
+    python scripts/rebuild_data_assets.py
+"""
+
 import pandas as pd
 import json
 import os
