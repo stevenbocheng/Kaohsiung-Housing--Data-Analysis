@@ -371,8 +371,12 @@ elif page == "EDA 數據藝廊":
     # Section 1: Preliminary Analysis
     with eda_tabs[0]:
         st.subheader("初步了解資料")
-        st.markdown("**資料來源**：內政部實價登錄 (2019 - 2026)")
-        
+        st.write(
+            "資料來源為**內政部不動產交易實價登錄**，涵蓋 2019–2026 年高雄市各行政區的住宅交易記錄，"
+            "共 **137,244 筆**。原始資料經過清洗與特徵工程後，包含建物面積、屋齡、公設比、"
+            "地理位置、交通距離等 51 個欄位。以下為主要數值特徵的統計摘要。"
+        )
+
         # 簡單統計表格
         cont_cols = ['建物移轉總面積坪', '屋齡', '淨屋單價元坪', '公設比', '主建物率', '土地持分率']
         valid_cols = [c for c in cont_cols if c in df_all.columns]
@@ -386,12 +390,17 @@ elif page == "EDA 數據藝廊":
     # Section 2: Correlations & Distributions
     with eda_tabs[1]:
         st.subheader("相關性與維度分佈")
+        st.write(
+            "透過相關性分析，我們可以了解各特徵之間的關聯程度，"
+            "協助篩選對預測單價最有幫助的特徵。"
+            "左圖為連續型變數之間的 Pearson 相關係數，右圖為類別型變數的 Cramér's V 關聯強度。"
+        )
         col_corr1, col_corr2 = st.columns(2)
         with col_corr1:
             st.image("visuals/eda/heatmap_continuous.png", caption="連續型變數相關熱力圖")
         with col_corr2:
             st.image("visuals/eda/heatmap_categorical.png", caption="類別型變數相關係數 (Cramer's V)")
-            
+
         st.markdown("---")
         st.write("#### 類別變數分佈")
         with st.expander("展開查看類別變數統計圖"):
@@ -402,57 +411,133 @@ elif page == "EDA 數據藝廊":
             c2.image("visuals/eda/bar_建物用途大類.png")
             c1.image("visuals/eda/bar_電梯.png")
             c2.image("visuals/eda/bar_有無管理組織.png")
-            
+
         st.markdown("---")
-        st.write("####連續變數分布特性")
+        st.write("#### 連續變數分布特性")
         st.image("visuals/eda/group1_district_age.png", caption="各行政區屋齡分佈 (箱型圖)")
         st.image("visuals/eda/group4_type_net_price.png", caption="建物型態與單價關係")
 
     # Section 3: Parking
     with eda_tabs[2]:
-        st.subheader("目標值處理：車位拆算深度分析")
-        st.info("**核心挑戰**：台灣房價登錄通常包含車位，導致「單價」計算失真。我們的目標是透過模型拆算，還原真實的「淨屋單價」。")
-        
-        st.markdown("#### 零面積車位現象研究")
-        st.write("我們發現早期建物常有「有車位但登記面積為 0」的情況，這在模型中被標註為 `is_zero_area` 特徵。")
+        st.subheader("資料處理：目標值建立")
+
+        # ── 步驟一：問題說明 ──────────────────────────────────────
+        st.markdown("#### 步驟一：為何需要車位拆算？")
+        st.write(
+            "台灣房子通常將**車位包含在總價**中一起交易。"
+            "由於我們的目標是計算「**每坪多少錢（淨屋單價）**」，"
+            "因此必須先將車位金額從總價中拆除，才能得到真實的房屋單價。"
+        )
+
+        st.markdown("---")
+        # ── 步驟二：發現零面積車位 ───────────────────────────────
+        st.markdown("#### 步驟二：發現零面積車位問題")
+        st.write(
+            "在處理過程中，我們發現部分資料**有車位但車位面積填寫為 0**。"
+            "我們推測這是因為早期建案將車位面積併入公設（共有部分）登記，"
+            "導致公設比偏高，而非真的沒有車位。"
+        )
+        st.image(
+            "visuals/eda/historical_public_ratio_trend.png",
+            caption="歷年平均公設比趨勢：紅色為零面積車位，藍色為有面積車位。"
+                    "零面積群體的公設比明顯偏高，且整體隨年份上升，符合推測。"
+        )
+
+        st.markdown("---")
+        # ── 步驟三：屋齡是關鍵因素 ──────────────────────────────
+        st.markdown("#### 步驟三：屋齡是關鍵因素")
+        st.write(
+            "進一步分析顯示，**屋齡越高，零面積車位的比例越高**。"
+            "這佐證了「以前的建案習慣將車位面積納入公設登記」的推論。"
+            "右圖也可以看到，近年交易中零面積車位的比例逐年下降，反映登記規範趨於完整。"
+        )
         c3, c4 = st.columns(2)
-        c3.image("visuals/eda/6_age_public_ratio_correlation.png", caption="屋齡與公設比關係")
-        c4.image("visuals/eda/trend_yearly_net_price.png", caption="歷年單價趨勢")
-        
-        st.image("visuals/eda/historical_public_ratio_trend.png", caption="歷史公設比變化")
-        st.success("**分析結論**：零面積車位高度集中於老舊建物，且這些物件的公設比顯著較高（圖中紅藍對比），證實車位面積被併入公設。")
-        
-        st.markdown("#### 離群值與資料清洗報告")
-        c_p1, c_p2 = st.columns(2)
-        with c_p1:
-            st.image("visuals/eda/price_correction_kde.png", caption="修正前後分佈對比")
-        with c_p2:
-            st.image("visuals/eda/trend_yearly_net_price.png", caption="修正後單價趨勢")
-        st.image("visuals/reports/kaohsiung_outlier_clean_report.png", caption="最終清洗結果概覽")
+        c3.image("visuals/eda/5_age_distribution.png",
+                 caption="屋齡分布對比：零面積（紅）vs 有面積（藍）車位")
+        c4.image("visuals/eda/4_yearly_trend.png",
+                 caption="歷年零面積車位佔比（有車位案件中）")
+        st.success(
+            "**結論**：零面積車位集中於屋齡較高的老舊建物，且公設比顯著偏高，"
+            "確認車位面積被早期建案「灌入公設」。\n\n"
+            "**處理策略**：對零面積車位，僅扣除車位**價格**，不扣除車位面積（避免雙重扣除）。"
+        )
+
+        st.markdown("---")
+        # ── 步驟四：Lasso 拆價模型 ──────────────────────────────
+        st.markdown("#### 步驟四：Lasso 回歸模型補值與拆除")
+        st.write(
+            "針對上述問題，我們使用 **Lasso 回歸模型**預測每筆交易的車位價格，"
+            "再從總價中扣除，得到淨屋總價，最後除以建物淨面積計算出淨屋單價。\n\n"
+            "公式：**淨屋單價 = (總價 − Lasso 預測車位價) ÷ 建物淨面積**"
+        )
+        st.image(
+            "visuals/eda/price_correction_kde.png",
+            caption="修正前（原始單價）vs 修正後（淨屋單價）分布對比：修正後分布更集中、長尾縮短"
+        )
+
+        st.markdown("---")
+        # ── 步驟五：修正後結果 ───────────────────────────────────
+        st.markdown("#### 步驟五：修正後的淨屋單價分布")
+        st.image(
+            "visuals/eda/boxplot_net_price_overall.png",
+            caption="清洗後全體淨屋單價箱型圖（已排除離群值 > 60 萬/坪）"
+        )
 
     # Section 4: Outliers
     with eda_tabs[3]:
-        st.subheader("離群值處理與偽屋定義")
-        st.error("房價資料中存在不合理的極端值 (如實價登錄報錯或特殊交易)，需進行過濾以確保模型穩健。")
-        st.image("visuals/eda/1_price_distribution_with_threshold.png", caption="單價分布 (對數空間)")
-        
-        st.write("我們篩選了疑似「假住宅」或「極端行情」的物件。")
-        st.image("visuals/reports/kaohsiung_outlier_clean_report.png", caption="離群值分析結果")
-        st.write("這類資料多為登記偏差，剔除後能讓模型更專注於大眾市場規律。隨後我們將資料按「建物型態」分流，分別建立大樓與透天模型。")
+        st.subheader("離群值處理")
+        st.error(
+            "完成車位拆算後，發現資料中仍存在**不合理的極端值**，"
+            "可能來自實價登錄的登記偏差或特殊交易，需進行篩除以確保模型穩健。"
+        )
+
+        st.markdown("#### 單價分布與門檻設定")
+        st.image("visuals/eda/1_price_distribution_with_threshold.png",
+                 caption="淨屋單價分布：橘線為偽屋篩選門檻（60萬/坪），虛線為99th百分位")
+
+        st.markdown("#### 偽屋（Fake House）篩選")
+        st.write(
+            "進一步發現部分物件**面積極小卻單價極高**，不符合正常住宅交易行為，"
+            "研判為登記錯誤或非典型交易，採用**雙重條件**篩除："
+        )
+        st.code("篩選條件：建物淨面積 < 5 坪  AND  淨屋單價 > 60 萬/坪", language=None)
+        st.image("visuals/eda/2_fake_house_scatter.png",
+                 caption="偽屋散點圖：紅色標記為篩除對象（面積<5坪且單價>60萬）")
+
+        st.markdown("#### 清洗結果")
+        st.image("visuals/reports/kaohsiung_outlier_clean_report.png",
+                 caption="離群值清洗前後對比概覽")
+        st.info(
+            "共篩除 **27 筆**偽屋（佔全體 0.02%），保留 137,244 筆有效資料。\n\n"
+            "清洗後，依**建物型態**分流：集合住宅（大樓/華廈/公寓）與透天厝分別建立獨立模型。"
+        )
 
     # Section 5: Market Trends
     with eda_tabs[4]:
-        st.subheader("市場行情動能 (台積電效應專題)")
-        st.markdown("近期高雄房價受產業入駐 (如楠梓台積電) 影響顯著，房價漲幅與區域熱度呈現強烈正相關。")
-        
+        st.subheader("市場動態：台積電效應專題")
+        st.markdown(
+            "近年高雄房市受**台積電楠梓設廠**消息影響，北高雄各行政區房價出現明顯分化。"
+            "以下圖表將 18 個主要行政區依 **2019→2026 漲幅** 由高至低排序，"
+            "橘色折線為台積電周邊區域（楠梓、橋頭、左營、岡山、仁武），"
+            "方便對比受產業利多帶動的區域與其他區域的差異。"
+        )
+
         growth_parts = [
-            "district_trends_v5_growth_part1.png", "district_trends_v5_growth_part2.png", 
-            "district_trends_v5_growth_part3.png", "district_trends_v5_growth_part4.png"
+            "district_trends_v5_growth_part1.png",
+            "district_trends_v5_growth_part2.png",
+            "district_trends_v5_growth_part3.png",
         ]
         for p_img in growth_parts:
-            st.image(f"visuals/eda/{p_img}")
-        
-        st.success("觀察發現：楠梓及周邊區域在設廠消息確認後，房價成長斜率明顯陡峭化，且成交價位帶有集體上移的趨勢。")
+            path = f"visuals/eda/{p_img}"
+            if os.path.exists(path):
+                st.image(path)
+
+        st.success(
+            "**觀察重點**：\n"
+            "- 楠梓、橋頭等北高雄區域在設廠消息明朗後，房價成長斜率明顯陡峭化\n"
+            "- 同期左營、岡山等鄰近區域也出現顯著漲幅，顯示外溢效應\n"
+            "- 傳統核心區（三民、苓雅）漲幅相對溫和，但基期單價仍屬高位"
+        )
 
 # =================================================================
 # Page 4: 技術說明
