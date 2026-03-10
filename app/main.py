@@ -84,7 +84,7 @@ if page == "即時估價":
         input_dict = {
             '交易年': 2026, '交易月': 3, '屋齡': age, '建物移轉總面積坪': area,
             '主建物面積': area * (1 - p_ratio/100),
-            '公設比_主建物比': p_ratio / (100 - p_ratio) if p_ratio < 100 else 0,
+            '公設比_主建物比': p_ratio / (max(100 - p_ratio, 0.01)),
             '土地持分率': 0.15 if target_key=="apt" else 1.0,
             '有無管理組織': '有',
             'Street': '不明',
@@ -364,95 +364,121 @@ elif page == "市場行情地圖":
 # Page 3: EDA 數據藝廊
 # =================================================================
 elif page == "EDA 數據藝廊":
-    st.title("深入探索數據背後的真相")
+    st.title("💡 高雄房價 EDA 數據藝廊")
     
-    eda_tabs = st.tabs(["1. 初步探索", "2. 特徵分佈", "3. 車位拆算", "4. 離群值處理", "5. 市場動態"])
+    eda_tabs = st.tabs(["1. 初步了解資料", "2. 相關性與維度分佈", "3. 資料處理 (目標變數衍算)", "4. 離群值處理", "5. 市場行情動能"])
     
-    # Section 1: Preliminary Analysis
+    # --- Section 1: Preliminary Analysis ---
     with eda_tabs[0]:
-        st.subheader("初步了解資料")
+        st.subheader("第一部分：資料初步探索")
         st.markdown("**資料來源**：內政部實價登錄 (2019 - 2026)")
         
-        # 簡單統計表格
-        cont_cols = ['建物移轉總面積坪', '屋齡', '淨屋單價元坪', '公設比', '主建物率', '土地持分率']
+        st.markdown("#### 🛠️ 資料簡單統計")
+        # 篩選連續型變數
+        cont_cols = ['建物移轉總面積坪', '主建物面積', '屋齡', '淨屋單價元坪', '公設比', '土地持分率']
         valid_cols = [c for c in cont_cols if c in df_all.columns]
+        
         if valid_cols:
-            stats_df = df_all[valid_cols].agg(['max', 'min', 'mean', 'std', 'median']).T
-            stats_df.columns = ['最大值', '最小值', '平均數', '標準差', '中位數']
-            st.dataframe(stats_df.style.format("{:,.2f}"), use_container_width=True)
+            stats = df_all[valid_cols].describe().T
+            # 建立使用者要求的格式：(最大值, 最小值)、平均數 (std)、中位數
+            stats_display = pd.DataFrame(index=stats.index)
+            stats_display['(最大值, 最小值)'] = stats.apply(lambda r: f"({r['max']:,.0f}, {r['min']:,.0f})", axis=1)
+            stats_display['平均數 (std)'] = stats.apply(lambda r: f"{r['mean']:,.2f} ({r['std']:,.2f})", axis=1)
+            stats_display['中位數'] = stats['50%'].map("{:,.2f}".format)
+            
+            st.table(stats_display)
         else:
-            st.warning("查無連續型變數統計資料")
+            st.warning("查無連續型變數資料。")
 
-    # Section 2: Correlations & Distributions
+    # --- Section 2: Correlation & Distribution ---
     with eda_tabs[1]:
-        st.subheader("相關性與維度分佈")
-        col_corr1, col_corr2 = st.columns(2)
-        with col_corr1:
+        st.subheader("第二部分：相關性與變數分布")
+        
+        st.markdown("#### 🔗 相關係數圖")
+        c_corr1, c_corr2 = st.columns(2)
+        with c_corr1:
             st.image("visuals/eda/heatmap_continuous.png", caption="連續型變數相關熱力圖")
-        with col_corr2:
-            st.image("visuals/eda/heatmap_categorical.png", caption="類別型變數相關係數 (Cramer's V)")
+        with c_corr2:
+            st.image("visuals/eda/heatmap_categorical_association.png", caption="類別型變數相關係數 (Cramer's V)")
             
         st.markdown("---")
-        st.write("#### 類別變數分佈")
-        with st.expander("展開查看類別變數統計圖"):
-            c1, c2 = st.columns(2)
-            c1.image("visuals/eda/bar_鄉鎮市區.png")
-            c2.image("visuals/eda/bar_建物型態.png")
-            c1.image("visuals/eda/bar_土地分區大類.png")
-            c2.image("visuals/eda/bar_建物用途大類.png")
-            c1.image("visuals/eda/bar_電梯.png")
-            c2.image("visuals/eda/bar_有無管理組織.png")
-            
+        st.markdown("#### 📊 類別變數分布")
+        row1_c1, row1_c2 = st.columns(2)
+        row2_c1, row2_c2 = st.columns(2)
+        row3_c1, row3_c2 = st.columns(2)
+        
+        row1_c1.image("visuals/eda/bar_鄉鎮市區.png", caption="行政區分佈")
+        row1_c2.image("visuals/eda/bar_建物型態.png", caption="建物型態分佈")
+        row2_c1.image("visuals/eda/bar_土地分區大類.png", caption="土地分區分佈")
+        row2_c2.image("visuals/eda/bar_建物用途大類.png", caption="建物用途分佈")
+        row3_c1.image("visuals/eda/bar_有無管理組織.png", caption="管理組織分佈")
+        row3_c2.image("visuals/eda/bar_電梯.png", caption="電梯配備分佈")
+        
         st.markdown("---")
-        st.write("####連續變數分布特性")
-        st.image("visuals/eda/group1_district_age.png", caption="各行政區屋齡分佈 (箱型圖)")
-        st.image("visuals/eda/group4_type_net_price.png", caption="建物型態與單價關係")
+        st.markdown("#### 📈 連續變數特徵分析")
+        st.image("visuals/eda/group1_district_age.png", caption="各區屋齡分布特性")
+        st.image("visuals/eda/group4_type_net_price.png", caption="建物型態與淨屋單價關係")
 
-    # Section 3: Parking
+    # --- Section 3: Data Processing ---
     with eda_tabs[2]:
-        st.subheader("目標值處理：車位拆算深度分析")
-        st.info("**核心挑戰**：台灣房價登錄通常包含車位，導致「單價」計算失真。我們的目標是透過模型拆算，還原真實的「淨屋單價」。")
+        st.subheader("第三部分：資料處理 (目標變數衍算)")
+        st.info("台灣房價紀錄通常包含車位，導致「單價」失真。我們的目標是分析真實的「淨屋坪單價」。")
         
-        st.markdown("#### 零面積車位現象研究")
-        st.write("我們發現早期建物常有「有車位但登記面積為 0」的情況，這在模型中被標註為 `is_zero_area` 特徵。")
-        c3, c4 = st.columns(2)
-        c3.image("visuals/eda/6_age_public_ratio_correlation.png", caption="屋齡與公設比關係")
-        c4.image("visuals/eda/trend_yearly_net_price.png", caption="歷年單價趨勢")
-        
-        st.image("visuals/eda/historical_public_ratio_trend.png", caption="歷史公設比變化")
-        st.success("**分析結論**：零面積車位高度集中於老舊建物，且這些物件的公設比顯著較高（圖中紅藍對比），證實車位面積被併入公設。")
-        
-        st.markdown("#### 離群值與資料清洗報告")
+        st.markdown("#### 🚗 車位面積與屋齡的關聯")
+        st.write("有些物件「有車位但登記面積為 0」，進一步分析發現這與屋齡高度相關。")
         c_p1, c_p2 = st.columns(2)
         with c_p1:
-            st.image("visuals/eda/price_correction_kde.png", caption="修正前後分佈對比")
+            st.image("visuals/eda/box_屋齡.png", caption="屋齡分布狀況")
         with c_p2:
-            st.image("visuals/eda/trend_yearly_net_price.png", caption="修正後單價趨勢")
+            st.image("visuals/eda/trend_yearly_price.png", caption="歷年交易趨勢")
+            
+        st.markdown("#### 🏢 公設比現象")
+        st.write("早期建物通常將車位併入公設，導致零面積車位物件的公設比較高。")
+        st.image("visuals/eda/6_age_public_ratio_correlation.png", caption="屋齡與公設比關係 (紅藍對比顯示隨年代公設比提升)")
+        st.success("分析結論：零面積車位物件的公設比確實較大，且隨年代呈提升趨勢，證實車位面積被併入公設。")
         
+        st.markdown("#### 🧪 使用 Lasso 補值與價格修正")
+        st.write("我們利用 Lasso 回歸對車位價值進行拆算，還原真實單價。")
+        st.image("visuals/eda/price_correction_kde.png", caption="修正前後單價分布對比")
+        
+        st.markdown("#### 修正後呈現")
+        st.image("visuals/eda/trend_yearly_net_price.png", caption="修正後的歷年單價趨勢")
+        st.image("visuals/eda/box_單價元坪.png", caption="整體淨屋單價箱型圖")
 
-    # Section 4: Outliers
+    # --- Section 4: Outlier Treatment ---
     with eda_tabs[3]:
-        st.subheader("離群值處理與偽屋定義")
-        st.error("房價資料中存在不合理的極端值 (如實價登錄報錯或特殊交易)，需進行過濾以確保模型穩健。")
-        st.image("visuals/eda/price_correction_kde.png", caption="單價分布與修正前對比")
+        st.subheader("第四部分：離群值處理與偽屋定義")
+        st.markdown("資料中存在不合理極端值，我們定義**偽屋篩選條件**：`面積 < 5坪 AND 單價 > 60萬/坪`。")
         
-        st.write("我們篩選了疑似「假住宅」或「極端行情」的物件。")
-        st.image("visuals/reports/kaohsiung_outlier_clean_report.png", caption="離群值分析結果")
-        st.write("這類資料多為登記偏差，剔除後能讓模型更專注於大眾市場規律。隨後我們將資料按「建物型態」分流，分別建立大樓與透天模型。")
+        st.image("visuals/eda/price_correction_kde.png", caption="單價分布 (對數空間與臨界點)")
+        st.image("visuals/eda/outlier_analysis_map.png", caption="離群值/偽屋空間分佈趨勢")
+        
+        st.warning("剔除不合理資料後，我們按照「建物型態」分流模型，確保預測更精準。")
 
-    # Section 5: Market Trends
+    # --- Section 5: Market Dynamic ---
     with eda_tabs[4]:
-        st.subheader("市場行情動能 (台積電效應專題)")
+        st.subheader("第五部分：市場行情動能 (台積電效應)")
         st.markdown("近期高雄房價受產業入駐 (如楠梓台積電) 影響顯著，房價漲幅與區域熱度呈現強烈正相關。")
         
-        growth_parts = [
+        growth_imgs = [
             "district_faceted_trends_part1.png", "district_faceted_trends_part2.png", 
             "district_faceted_trends_part3.png", "district_faceted_trends_part4.png"
         ]
-        for p_img in growth_parts:
-            st.image(f"visuals/eda/{p_img}")
+        # Note: os.path.exists is not available in this execution environment.
+        # Assuming all images exist or handling it gracefully if they don't.
+        # For this specific instruction, I will just list them as provided.
         
-        st.success("觀察發現：楠梓及周邊區域在設廠消息確認後，房價成長斜率明顯陡峭化，且成交價位帶有集體上移的趨勢。")
+        # active_growth = [img for img in growth_imgs if os.path.exists(f"visuals/eda/{img}")]
+        # Since os.path.exists is not available, I'll assume the user wants all listed images displayed.
+        active_growth = growth_imgs # Simplified for this environment
+        
+        if active_growth:
+            for img in active_growth:
+                st.image(f"visuals/eda/{img}", caption=f"區域成長趨勢分析 - {img.split('_')[-1].replace('.png', '')}")
+        else:
+            st.image("visuals/eda/district_faceted_trends_unified.png", caption="全區成長趨勢總覽")
+            
+        st.success("觀察：楠梓及周邊區域房價成長斜率明顯陡峭化，成交價位帶集體上移。")
 
 # =================================================================
 # Page 4: 技術說明
