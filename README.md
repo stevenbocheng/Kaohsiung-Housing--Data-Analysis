@@ -1,8 +1,10 @@
 # 高雄房價數據分析 & 儀表板
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://kaohsiung-housing-data-analysis.streamlit.app/)
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-基於機器學習的高雄房價預測與分析儀表板。透過內政部實價登錄數據（2019–2026），結合地理空間分析、車位拆算與 GBDT 演算法，提供精準的房價估算與市場趨勢洞察。
+基於機器學習的高雄房價預測與分析儀表板。透過內政部實價登錄數據（2019–2026），結合地理空間分析、車位拆算（Lasso 回歸）與 GBDT 演算法，提供精準的房價估算與市場趨勢洞察。
 
 ---
 
@@ -11,8 +13,8 @@
 | 頁面 | 功能說明 |
 |------|---------|
 | **即時估價** | 輸入物件條件，AI 預測淨屋單價與總價，並附 SHAP 瀑布圖解釋預測依據 |
-| **市場行情地圖** | 高雄 31 個行政區的互動式地理面量圖，支援平均值、中位數、豪宅筆數切換 |
-| **EDA 數據藝廊** | 完整資料處理流程：車位拆算研究、離群值處理、台積電效應地區分析 |
+| **市場行情地圖** | 高雄 31 個行政區的互動式地理面量圖，支援平均值、中位數、成交筆數（全部／離群值）切換 |
+| **EDA 數據藝廊** | 完整資料處理流程：車位拆算研究（Lasso 回歸補值去除）、離群值處理、台積電效應地區分析 |
 | **技術與模型說明** | 資料清洗流水線、特徵工程原理、模型競賽結果、SHAP 可解釋性 |
 
 ---
@@ -61,7 +63,8 @@ kaohsiung-house-price-analysis/
 │   ├── kaohsiung_districts.json   # 行政區 GeoJSON 邊界（地圖用）
 │   └── street_coords_cache.json   # 街道坐標快取（加速定位）
 ├── data/
-│   └── cleaned_all.csv            # 清洗後資料集（137,244 筆，51 欄）
+│   ├── cleaned_all.csv            # 清洗後資料集（137,244 筆，51 欄，EDA 用）
+│   └── map_data.csv               # 市場行情地圖精簡資料（含離群值，3 欄）
 ├── models/
 │   ├── catboost_apartment_model.pkl   # 集合住宅模型
 │   ├── lgbm_house_model.pkl           # 透天厝模型
@@ -71,14 +74,32 @@ kaohsiung-house-price-analysis/
 │   ├── eda/                       # 探索性分析圖表（50+ 張）
 │   ├── shaps/                     # SHAP 特徵解釋圖表
 │   └── reports/                   # 離群值分析報告圖
-├── scripts/                       # 資料處理與模型訓練腳本（23 個）
+├── scripts/                       # 資料處理與模型訓練腳本（28 個）
 │   ├── retrain_models.py          # 重新訓練 CatBoost / LightGBM 模型
 │   ├── gen_market_context.py      # 重建行政區市場行情快照
 │   ├── rebuild_data_assets.py     # 同步 cleaned_all.csv 與快照
-│   └── gen_missing_eda_charts.py  # 重新生成 EDA 圖表
+│   ├── gen_missing_eda_charts.py  # 重新生成 EDA 圖表
+│   ├── gen_parking_research_charts.py  # 車位研究圖表
+│   ├── gen_shap_charts.py         # SHAP 特徵解釋圖表
+│   └── gen_split_datasets.py      # 資料集切分（含離群值版本）
+├── backup_archive/                # 本地原始中間檔（不納入 git，83MB+）
+│   └── main_unbundled_lasso_v3_with_pca.csv  # 含離群值完整資料集（來源）
 ├── requirements.txt
 └── README.md
 ```
+
+---
+
+## 資料說明
+
+| 項目 | 內容 |
+|------|------|
+| 來源 | 內政部不動產交易實價查詢服務網（H 類住宅交易） |
+| 範圍 | 高雄市 2019 年 1 月 – 2026 年 |
+| 筆數 | 137,244 筆（清洗後） |
+| 更新 | 下載新資料後執行 `rebuild_data_assets.py` 重新產出所有資產 |
+
+> **注意**：`backup_archive/` 目錄因超過 GitHub 大小限制（83MB+），已排除於版本控制。市場行情地圖使用的精簡版 `data/map_data.csv`（僅含鄉鎮市區、淨屋單價、建物型態，約 7.6MB）已納入 git 追蹤。
 
 ---
 
@@ -87,8 +108,8 @@ kaohsiung-house-price-analysis/
 ### 本地執行
 
 ```bash
-git clone https://github.com/your-repo/kaohsiung-house-price-analysis
-cd kaohsiung-house-price-analysis
+git clone https://github.com/stevenbocheng/Kaohsiung-Housing--Data-Analysis
+cd Kaohsiung-Housing--Data-Analysis
 pip install -r requirements.txt
 streamlit run app/main.py
 ```
@@ -108,7 +129,7 @@ python scripts/retrain_models.py
 # 2. 更新市場行情快照
 python scripts/gen_market_context.py
 
-# 3. 同步資料資產
+# 3. 同步資料資產（含重新產出 data/map_data.csv）
 python scripts/rebuild_data_assets.py
 
 # 4. 重新生成 EDA 圖表

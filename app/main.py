@@ -48,8 +48,8 @@ def load_data():
 
 @st.cache_data
 def load_map_data():
-    # 市場行情地圖使用含離群值的中間檔
-    df = pd.read_csv("backup_archive/main_unbundled_lasso_v3_with_pca.csv", low_memory=False)
+    # 市場行情地圖使用含離群值的精簡欄位檔（鄉鎮市區、淨屋單價元坪、建物型態）
+    df = pd.read_csv("data/map_data.csv", low_memory=False)
     return df
 
 # 注意：需確保路徑正確或檔案已移動

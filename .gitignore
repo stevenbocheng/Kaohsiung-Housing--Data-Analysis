@@ -11,6 +11,7 @@ backup_archive/
 **/*.csv
 !data/cleaned_all.csv
 !data/kaohsiung_poi_coords_categorized.csv
+!data/map_data.csv
 *.csv.gz
 *.xls
 
