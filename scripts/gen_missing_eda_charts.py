@@ -17,9 +17,11 @@ import seaborn as sns
 # ─────────────────────────────────────────
 # 設定路徑
 # ─────────────────────────────────────────
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_PATH = os.path.join(BASE_DIR, "data", "cleaned_all.csv")
-OUT_DIR   = os.path.join(BASE_DIR, "visuals", "eda")
+BASE_DIR      = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_PATH     = os.path.join(BASE_DIR, "data", "cleaned_all.csv")
+# 市場動態圖使用備份中間檔（含偽屋清洗前，覆蓋範圍較完整）
+DATA_PATH_PCA = os.path.join(BASE_DIR, "backup_archive", "main_unbundled_lasso_v3_with_pca.csv")
+OUT_DIR       = os.path.join(BASE_DIR, "visuals", "eda")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 # 統一字型（避免中文亂碼）
@@ -29,7 +31,12 @@ plt.rcParams['figure.dpi']        = 120
 
 print("載入資料中…")
 df = pd.read_csv(DATA_PATH, low_memory=False)
-print(f"  共 {len(df):,} 筆")
+print(f"  cleaned_all.csv：共 {len(df):,} 筆")
+
+print("載入備份 PCA 資料（市場動態用）…")
+df_pca = pd.read_csv(DATA_PATH_PCA, encoding='utf-8', low_memory=False)
+# 欄位名稱與 cleaned_all.csv 相同（均51欄），直接使用
+print(f"  main_unbundled_lasso_v3_with_pca.csv：共 {len(df_pca):,} 筆")
 
 
 # ─────────────────────────────────────────
@@ -272,8 +279,8 @@ def plot_fake_house_scatter():
 # ─────────────────────────────────────────
 def plot_district_growth():
     col = '淨屋單價元坪'
-    # 只使用 2019–2026 的資料（專案分析範圍）
-    data = df[(df[col] > 0) & (df['交易年'] >= 2019) & (df['交易年'] <= 2026)].copy()
+    # 使用備份 PCA 中間檔（包含離群值，更完整的行政區樣本），篩選 2019–2026
+    data = df_pca[(df_pca[col] > 0) & (df_pca['交易年'] >= 2019) & (df_pca['交易年'] <= 2026)].copy()
     data['price_wan'] = data[col] / 10000
 
     # 計算各行政區 × 交易年 中位數
@@ -305,8 +312,8 @@ def plot_district_growth():
         n = len(districts_list)
         ncols = 4
         nrows = (n + ncols - 1) // ncols
-        fig, axes = plt.subplots(nrows, ncols, figsize=(16, nrows * 3.2),
-                                 constrained_layout=True)
+        fig_h = max(3, nrows * 1.5) if nrows == 1 else max(5.5, nrows * 3.5)
+        fig, axes = plt.subplots(nrows, ncols, figsize=(16, fig_h))
         axes = axes.flatten()
 
         for i, d in enumerate(districts_list):
@@ -332,12 +339,14 @@ def plot_district_growth():
         for j in range(i + 1, len(axes)):
             axes[j].set_visible(False)
 
-        # 整體標題
+        # 整體標題：留出頂部空間，不壓到子圖
         rank_start = (part_num - 1) * 8 + 1
         rank_end   = rank_start + n - 1
         highlight_note = '  [橘色 = 台積電周邊區域]' if any(d in highlight for d in districts_list) else ''
         fig.suptitle(f'行政區房價趨勢（按漲幅排序，第 {rank_start}–{rank_end} 名）{highlight_note}',
-                     fontsize=13, fontweight='bold', y=1.01)
+                     fontsize=13, fontweight='bold')
+        top_val = 0.78 if nrows == 1 else 0.88
+        plt.subplots_adjust(top=top_val, hspace=0.6, wspace=0.3)
 
         out = os.path.join(OUT_DIR, f'district_trends_v5_growth_part{part_num}.png')
         fig.savefig(out, bbox_inches='tight', dpi=130)
@@ -350,6 +359,83 @@ def plot_district_growth():
         chunk_districts = sorted_districts[i * chunk:(i + 1) * chunk]
         if chunk_districts:
             make_parts(chunk_districts, i + 1)
+
+
+# ─────────────────────────────────────────
+# 圖7：district_growth_ranking.png
+# 2019→2026 各行政區漲幅排名橫向條形圖
+# ─────────────────────────────────────────
+def plot_district_growth_ranking():
+    import numpy as np
+    col = '淨屋單價元坪'
+    data = df_pca[(df_pca[col] > 0) & (df_pca['交易年'] >= 2019) & (df_pca['交易年'] <= 2026)].copy()
+    data['price_wan'] = data[col] / 10000
+
+    grp = (data.groupby(['鄉鎮市區', '交易年'])['price_wan']
+               .median().reset_index())
+    grp.columns = ['district', 'year', 'median_price']
+
+    years = sorted(grp['year'].dropna().unique())
+    min_yr, max_yr = int(years[0]), int(years[-1])
+
+    districts_min = set(grp[grp['year'] == min_yr]['district'])
+    districts_max = set(grp[grp['year'] == max_yr]['district'])
+    valid = sorted(districts_min & districts_max)
+
+    rows = []
+    for d in valid:
+        p0 = grp[(grp['district'] == d) & (grp['year'] == min_yr)]['median_price'].values[0]
+        p1 = grp[(grp['district'] == d) & (grp['year'] == max_yr)]['median_price'].values[0]
+        rows.append({'district': d, 'p2019': p0, 'p2026': p1,
+                     'growth_pct': (p1 - p0) / p0 * 100})
+
+    df_rank = pd.DataFrame(rows).sort_values('growth_pct')  # 由低到高，橫向圖由下往上顯示高的
+    n = len(df_rank)
+
+    highlight = {'楠梓區', '橋頭區', '左營區', '岡山區', '仁武區'}
+    colors = ['#E05C3B' if d in highlight else '#3B82C4' for d in df_rank['district']]
+
+    fig, ax = plt.subplots(figsize=(12, max(8, n * 0.55)))
+
+    bars = ax.barh(range(n), df_rank['growth_pct'], color=colors, alpha=0.85, height=0.65)
+
+    # 標注 2019 / 2026 中位數與漲幅
+    for i, (_, row) in enumerate(df_rank.iterrows()):
+        pct = row['growth_pct']
+        # 漲幅數字在條形右端
+        ax.text(pct + 0.5, i, f"+{pct:.1f}%",
+                va='center', ha='left', fontsize=9, fontweight='bold',
+                color='#C0392B' if row['district'] in highlight else '#1E3A5F')
+        # 2019 / 2026 價格在條形左端（灰色小字）
+        ax.text(-0.8, i,
+                f"{row['p2019']:.1f}→{row['p2026']:.1f} 萬",
+                va='center', ha='right', fontsize=7.5, color='#666')
+
+    # Y 軸標籤
+    ax.set_yticks(range(n))
+    ax.set_yticklabels(df_rank['district'], fontsize=10)
+
+    # 台積電圖例
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor='#E05C3B', alpha=0.85, label='台積電周邊（楠梓/橋頭/左營/岡山/仁武）'),
+        Patch(facecolor='#3B82C4', alpha=0.85, label='其他行政區'),
+    ]
+    ax.legend(handles=legend_elements, loc='lower right', fontsize=9)
+
+    ax.axvline(0, color='#999', linewidth=1)
+    ax.xaxis.grid(True, linestyle='--', alpha=0.4)
+    ax.set_axisbelow(True)
+    ax.set_xlabel('漲幅（%）', fontsize=11)
+    ax.set_title(f'高雄各行政區房價漲幅排名 {min_yr}→{max_yr}\n（以淨屋單價中位數計，數字為 2019→2026 萬元/坪）',
+                 fontsize=13, fontweight='bold', pad=14)
+
+    sns.despine(ax=ax, left=False)
+    plt.tight_layout()
+    out = os.path.join(OUT_DIR, 'district_growth_ranking.png')
+    fig.savefig(out, bbox_inches='tight', dpi=130)
+    plt.close(fig)
+    print(f"  ✓ {out}")
 
 
 # ─────────────────────────────────────────
@@ -375,6 +461,9 @@ if __name__ == '__main__':
 
     print("圖6：行政區漲幅小多圖（4張）…")
     plot_district_growth()
+
+    print("圖7：行政區漲幅排名橫向條形圖…")
+    plot_district_growth_ranking()
 
     print("\n=== 全部完成 ===")
     print(f"圖片儲存於：{OUT_DIR}")
