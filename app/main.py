@@ -547,26 +547,6 @@ elif page == "EDA 數據藝廊":
             "清洗後，依**建物型態**分流：集合住宅（大樓/華廈/公寓）與透天厝分別建立獨立模型。"
         )
 
-        st.markdown("---")
-        st.markdown("#### 車位拆算：Lasso 回歸補值去除")
-        st.write(
-            "實價登錄的交易總價通常**含車位**，但部分車位面積登記為 0（零面積車位現象），"
-            "直接以「總價 ÷ 面積」計算單價會產生系統性高估。"
-            "為取得純住宅單價，本專案使用 **Lasso 回歸**拆算車位價格："
-        )
-        st.markdown("""
-        | 步驟 | 說明 |
-        |------|------|
-        | ① 訓練集 | 有面積車位的案件（車位面積 > 0），以物件特徵預測「車位總價元」 |
-        | ② 正則化 | L1 Lasso 懲罰，確保只保留真正有影響力的特徵，避免過擬合 |
-        | ③ 預測 | 對所有有車位案件（含零面積）預測車位市值 |
-        | ④ 衍算 | **淨屋單價 = （總價 − Lasso 預測車位價）÷ 建物淨面積** |
-        """)
-        st.image(
-            "visuals/eda/price_correction_kde.png",
-            caption="修正前（含車位單價）vs 修正後（淨屋單價）KDE 對比：拆除車位後峰值左移 ~5 萬/坪、右尾縮短，"
-                    "更精確反映純住宅市場單價。"
-        )
 
     # Section 5: Market Trends
     with eda_tabs[4]:
@@ -635,7 +615,7 @@ else:
         ]
         for i, (title, desc) in enumerate(steps):
             with flow_cols[i % 4]:
-                st.info(f"**{title}**\n\n{desc}")
+                st.info(f"{title}\n\n{desc}")
                 
         st.write("---")
         st.markdown("### 資料量流失漏斗")
@@ -708,20 +688,27 @@ else:
             "提升模型對住宅結構品質的感知能力。"
         )
 
+        def _latex_block(formula: str):
+            """st.latex 中文字在分數內會被容器裁切，改用帶 padding 的 div 包住 $$ 顯示數學式。"""
+            st.markdown(
+                f'<div style="padding:14px 0 8px 0; overflow:visible;">$${formula}$$</div>',
+                unsafe_allow_html=True,
+            )
+
         st.markdown("**公設比（Common Area Ratio）**")
-        st.latex(r"\text{公設比} = \frac{\text{建物移轉總面積} - \text{主建物面積} - \text{附屬建物面積}}{\text{建物移轉總面積}} \times 100\%")
+        _latex_block(r"\text{公設比} = \frac{\text{建物移轉總面積} - \text{主建物面積} - \text{附屬建物面積}}{\text{建物移轉總面積}} \times 100\%")
         st.caption("反映公共設施佔比；越高代表實際居住面積越小。")
 
         st.markdown("**公設比主建物比（入模特徵）**")
-        st.latex(r"\text{公設比\_主建物比} = \frac{\text{公設比}}{1 - \text{公設比}}")
+        _latex_block(r"\text{公設比\_主建物比} = \frac{\text{公設比}}{1 - \text{公設比}}")
         st.caption("對公設比做 Odds 轉換，放大高公設比端的差異，對模型更有區辨力。")
 
         st.markdown("**土地持分率**")
-        st.latex(r"\text{土地持分率} = \frac{\text{土地移轉總面積}}{\text{建物移轉總面積}}")
+        _latex_block(r"\text{土地持分率} = \frac{\text{土地移轉總面積}}{\text{建物移轉總面積}}")
         st.caption("集合住宅通常 0.02–0.30；透天厝接近 1.0（地主自建）。此特徵是透天厝定價最重要的驅動力。")
 
         st.markdown("**屋齡**")
-        st.latex(r"\text{屋齡} = \text{交易年（西元）} - \text{建築完成年（西元）}")
+        _latex_block(r"\text{屋齡} = \text{交易年（西元）} - \text{建築完成年（西元）}")
         st.caption("民國年於前處理階段轉換為西元年。屋齡每增加 1 年，單價平均折舊顯著。")
 
         st.markdown("---")
@@ -805,7 +792,7 @@ else:
                 "MAPE": ["11.90%", "12.11%", "12.83%"],
                 "MAE（元/坪）": ["34,893", "35,843", "39,370"],
                 "R²": ["0.6252", "0.6068", "0.5209"],
-                "評選": ["✅ 決選", "", ""]
+                "評選": ["選擇此模型", "", ""]
             })
             st.table(apt_results)
             st.caption(
@@ -820,7 +807,7 @@ else:
                 "MAPE": ["14.92%", "14.26%", "16.41%"],
                 "MAE（元/坪）": ["55,902", "58,181", "69,151"],
                 "R²": ["0.5132", "0.2399", "0.0370"],
-                "評選": ["✅ 決選", "", ""]
+                "評選": ["選擇此模型", "", ""]
             })
             st.table(house_results)
             st.caption(
