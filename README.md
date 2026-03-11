@@ -1,6 +1,6 @@
 # 高雄房價數據分析 & 儀表板
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://kaohsiung-housing-data-analysis.streamlit.app/)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://kaohsiung-housing--data-analysis-kiogievjdtcmtownemeud8.streamlit.app/)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 

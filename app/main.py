@@ -688,12 +688,16 @@ else:
             "提升模型對住宅結構品質的感知能力。"
         )
 
+        # 注入 CSS：讓 KaTeX 分數容器有足夠的上下空間，避免中文字被裁切
+        st.markdown(
+            "<style>.katex-display{padding:10px 0 6px 0 !important;"
+            "overflow:visible !important;}</style>",
+            unsafe_allow_html=True,
+        )
+
         def _latex_block(formula: str):
-            """st.latex 中文字在分數內會被容器裁切，改用帶 padding 的 div 包住 $$ 顯示數學式。"""
-            st.markdown(
-                f'<div style="padding:14px 0 8px 0; overflow:visible;">$${formula}$$</div>',
-                unsafe_allow_html=True,
-            )
+            """使用 st.markdown $$ 語法讓 Streamlit 內建 KaTeX 渲染，搭配上方 CSS 防止裁切。"""
+            st.markdown(f"$${formula}$$")
 
         st.markdown("**公設比（Common Area Ratio）**")
         _latex_block(r"\text{公設比} = \frac{\text{建物移轉總面積} - \text{主建物面積} - \text{附屬建物面積}}{\text{建物移轉總面積}} \times 100\%")
@@ -710,7 +714,6 @@ else:
         st.markdown("**屋齡**")
         _latex_block(r"\text{屋齡} = \text{交易年（西元）} - \text{建築完成年（西元）}")
         st.caption("民國年於前處理階段轉換為西元年。屋齡每增加 1 年，單價平均折舊顯著。")
-
         st.markdown("---")
         st.markdown("#### 4. 特徵清單總覽（21 個入模特徵）")
         feat_table = pd.DataFrame({
